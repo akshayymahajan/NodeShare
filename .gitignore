@@ -1,0 +1,5 @@
+node_modules/
+*.pages
+*.pdf
+*.key
+.DS_STORE

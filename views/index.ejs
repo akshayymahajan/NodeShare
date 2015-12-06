@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>NodeShare</title>
+		<link rel="stylesheet" href="/css/font-awesome.min.css">
+		<link rel="stylesheet" href="/css/bootstrap.min.css">
+		<link rel="stylesheet" href="/css/style.css">
+	</head>
+	<body>
+		<div class="container-fluid">
+			<div class="row">
+				<div class="header text-center">
+					<h1>NodeShare</h1>
+					<p>File Sharing made Easy</p>
+				</div>
+			</div>
+
+			<div class="row">
+				<div class="col-md-5 col-md-offset-1">
+					<div class="row">
+						<div class="card text-center name">
+							<h3>Connect to NodeShare</h3>
+							<form class="form-horizontal">
+								<div class="form-group">
+									<div class="col-md-9">
+										<input type="text" id="userName" class="form-control" placeholder="Enter your name">
+									</div>
+									<div class="col-md-3 text-center">
+										<button class="btn btn-primary btn-connect" type="button" id="connectServer">Connect</button>
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+					<div class="row">
+						<div class="card clients">
+							<h3>Connected Users</h3>
+							<div class="receiver">
+								<table class="table table-striped">
+									<tr>
+										<th class="col-md-9">Username</th>
+										<th class="col-md-3">Connect</th>
+									</tr>
+								</table>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-md-5">
+					<div class="card" id="drop_zone">
+						<h3>Ongoing Transfers</h3>
+						<div>
+							<div class="transfers" style="display: none;">
+								<output id="list">
+									<table class="table table-striped">
+										<tr>
+											<th>File Name</th>
+											<th>Actions</th>
+										</tr>
+									</table>
+								</output>
+							</div>
+							<div class="dropzone drop-target">
+								<span>Drop files here</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="alert alert-success alert-dismissible text-center" id="alert-success" role="alert">Success</div>
+		<div class="alert alert-danger alert-dismissible text-center" id="alert-fail" role="alert">Failed</div>
+
+		<footer>
+			<p>Made by Akshay Mahajan</p>
+		</footer>
+
+		<div class="modal" id="request-modal">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<h4 class="modal-title">Connection Request</h4>
+					</div>
+					<div class="modal-body">
+						<span id="request-sender" hidden></span><span id="sender-name"></span> would like to connect.
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal" id="request-reject">Reject</button>
+						<button type="button" class="btn btn-primary" id="request-accept">Accept</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script src="/js/jquery.min.js"></script>
+		<script src="/js/bootstrap.min.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		<script><% include script.ejs %></script>
+	</body>
+</html>

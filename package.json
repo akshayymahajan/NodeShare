@@ -1,0 +1,17 @@
+{
+  "name": "nodeshare",
+  "version": "1.0.0",
+  "description": "Node.js File Sharing",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Akshay Mahajan",
+  "license": "ISC",
+  "dependencies": {
+    "crypto": "0.0.3",
+    "ejs": "^2.3.3",
+    "express": "^4.13.3",
+    "socket.io": "^1.3.6"
+  }
+}

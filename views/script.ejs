@@ -1,0 +1,260 @@
+var socket = io();
+var receivedFiles = {};
+var connected = false;
+var sharing = false;
+var receiver = null;
+
+// send share id and online status on connection.
+$('#connectServer').click(function() {
+	var name = $('#userName').val().trim();
+	if(name != '') {
+		socket.emit('online', {sid: '<%= id %>', uname: name});
+		socket.on('onlineAck', function(data) {
+			if(data.status) {
+				$('#userName').attr('disabled', true);
+				$('#connectServer').html('CONNECTED');
+				$('#connectServer').attr('disabled', true);
+				for(client in data.clients) {
+					if(client != '<%= id %>') {
+						$('.receiver table tr:last').after('<tr id="' + client + '"><td>' + data.clients[client] + '</td><td><button class="btn btn-primary btn-connect connect" type="button" data-id="' + client + '">Connect</button></td></tr>');
+					}
+				}
+				connected = true;
+				$('.name').addClass('hide-animate');
+				$('.clients').addClass('translate-clients');
+				setTimeout(function() {
+					$('.name').css('display', 'none');
+					$('.clients').css('transition', 'margin-top 0s');
+					$('.clients').css('margin-top', '-50px');
+					$('.clients').addClass('extend-clients'); 
+				}, 750);
+			}
+		});
+	}
+});
+
+socket.on('newUser', function(data) {
+	if(connected) {
+		if (!sharing)
+			$('.receiver table tr:last').after('<tr id="' + data.sid + '"><td>' + data.uname + '</td><td><button class="btn btn-primary btn-connect connect" type="button" data-id="' + data.sid + '">Connect</button></td></tr>')
+		else
+			$('.receiver table tr:last').after('<tr id="' + data.sid + '"><td>' + data.uname + '</td><td><button class="btn btn-primary btn-connect connect" type="button" data-id="' + data.sid + '" disabled>Connect</button></td></tr>')
+	}
+});
+
+function showAlert(msg, type, timeout) {
+	timeout = timeout || 3000;
+	$('#' + type).html(msg);
+	$('#' + type).css('display', 'block');
+	setTimeout(function() {
+		$('#' + type).css('display', 'none');
+	}, 3000);
+}
+
+socket.on('user-disconnect', function(userid) {
+	$('#' + userid).remove();
+});
+
+function b64toBlob(b64Data, contentType, sliceSize) {
+    contentType = contentType || '';
+    sliceSize = sliceSize || 512;
+
+    var byteCharacters = atob(b64Data);
+    var byteArrays = [];
+
+    for (var offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+        var slice = byteCharacters.slice(offset, offset + sliceSize);
+
+        var byteNumbers = new Array(slice.length);
+        for (var i = 0; i < slice.length; i++) {
+            byteNumbers[i] = slice.charCodeAt(i);
+        }
+
+        var byteArray = new Uint8Array(byteNumbers);
+
+        byteArrays.push(byteArray);
+    }
+
+    var blob = new Blob(byteArrays, {type: contentType});
+    return blob;
+}
+
+socket.on('peerReceive', function(stream, data) {
+	var id = (new Date()).valueOf().toString();
+	console.log(stream);
+	var blob = b64toBlob(stream.split(',')[1]);
+	var blobUrl = URL.createObjectURL(blob);
+	receivedFiles[id] = {'stream': blobUrl, 'fdata': data};
+	$('#list table tr:last').after('<tr id=' + id + '><td>' + data.fname + '</td><td><button class="btn btn-success btn-action" onclick="saveFile(' + id + ');"><i class="fa fa-floppy-o"></i></button><button class="btn btn-danger btn-action" onclick="delFile(' + id + ', true);"><i class="fa fa-trash-o"></i></button></td></tr>');
+	$('.transfers').css('display', 'block');
+	$('.drop-target').css('display', 'none');
+});
+
+socket.on('connectRequest', function(data) {
+	$('#request-sender').html(data.sid);
+	$('#sender-name').html(data.uname)
+	$('#request-modal').modal({
+		backdrop: 'static',
+		keyboard: false
+	});
+});
+
+socket.on('other-disconnected', function() {
+	receiver = null;
+	sharing = false;
+	$('.connect').html('CONNECT');
+	$('.connect').attr('disabled', false);
+	$('.connect').removeClass('btn-success btn-danger');
+	$('.connect').addClass('btn-primary');
+	showAlert('Disconnected from other side!', 'alert-fail');
+});
+
+$('.receiver').on('click', '.connect', function() {
+	if (sharing) {
+		socket.emit('connection-disconnect', {from: '<%= id %>', to: receiver});
+		receiver = null;
+		sharing = false;
+		$('.connect').html('CONNECT');
+		$('.connect').attr('disabled', false);
+		$('.connect').removeClass('btn-success btn-danger');
+		$('.connect').addClass('btn-primary');
+		return;
+	}
+
+	var pressed = $(this);
+	$('.connect').attr('disabled', true);
+	pressed.html('<i class="fa fa-2x fa-circle-o-notch fa-spin"></i>');
+	data = {};
+	data.to = $(this).attr('data-id');
+	data.from = '<%= id %>';
+
+	socket.emit('peerConnect', data);
+
+	socket.on('peerError', function(data) {
+		console.log('connect error!');
+		$('.connect').html('CONNECT');
+		$('.connect').attr('disabled', false);
+		$('.connect').removeClass('btn-success');
+		$('.connect').addClass('btn-primary');
+		showAlert(data.msg, 'alert-fail');
+	});
+
+	socket.on('accepted', function(status) {
+		if (status == true) {
+			pressed.html('DISCONNECT');
+			pressed.attr('disabled', false);
+			pressed.removeClass('btn-primary');
+			pressed.addClass('btn-danger disconnect');
+			showAlert('Successfully connected!!', 'alert-success');
+			sharing = true;
+			receiver = data.to;
+		} else {
+			$('.connect').html('CONNECT');
+			$('.connect').attr('disabled', false);
+			$('.connect').removeClass('btn-success');
+			$('.connect').addClass('btn-primary');
+			showAlert('Receiver declined the transfer', 'alert-fail');
+		}
+	});
+});
+
+$('#request-accept').click(function() {
+	socket.emit('allow', true);
+	$('#request-modal').modal('toggle');
+	var sender = $('#' + $('#request-sender').html() + ' .connect');
+	$('.connect').attr('disabled', true);
+	sender.html('DISCONNECT');
+	sender.attr('disabled', false);
+	sender.removeClass('btn-primary');
+	sender.addClass('btn-danger disconnect');
+	sharing = true;
+	receiver = $('#request-sender').html();
+});
+
+$('#request-reject').click(function() {
+	socket.emit('deny', false);
+	$('#request-modal').modal('toggle');
+});
+
+function saveFile(fid) {
+	var stream = receivedFiles[fid].stream;
+	var data = receivedFiles[fid].fdata;
+
+	//var blob = new Blob([stream], {type: data.ftype});
+	var a = document.createElement("a");
+	document.body.appendChild(a);
+	a.style = "display: none";
+	//a.href = window.URL.createObjectURL(blob);
+	a.href = stream;
+	a.download = data.fname;
+	a.click();
+	delFile(fid, false);
+}
+
+function delFile(fid, removeEntry) {
+	if (removeEntry) {
+		$('#' + fid).remove();
+	}
+	delete receivedFiles[fid];
+}
+
+function sendFile(f, data) {
+	var reader = new FileReader();
+	reader.onloadend = function(e) {
+		if (e.target.readyState == FileReader.DONE) {
+			socket.emit('file', reader.result, data);
+			console.log(reader.result.length);
+		}
+	}
+	reader.readAsDataURL(f);
+}
+
+var counter = 0;
+$('#drop_zone').bind({
+	dragenter: function(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		$('.drop-target').css('display', 'block');
+		$('.transfers').css('display', 'none');
+		counter++;
+	},
+	dragleave: function(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		counter--;
+		if(counter == 0) {
+			$('.transfers').css('display', 'block');
+			$('.drop-target').css('display', 'none');
+		}
+	},
+	dragover: function(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+		evt.originalEvent.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+	},
+	drop: function(evt) {
+		evt.stopPropagation();
+		evt.preventDefault();
+
+		var to = receiver;
+		var from = '<%= id %>';
+
+		var files = evt.originalEvent.dataTransfer.files; // FileList object.
+		// files is a FileList of File objects. List some properties.
+		var output = [];
+		for (var i = 0, f; f = files[i]; i++) {
+			$('#list table tr:last').after('<tr><td>' + escape(f.name) + '</td><td></td></tr>');
+			var data = {};
+			data.to = to;
+			data.from = from;
+			data.fname = escape(f.name);
+			data.ftype = f.type;
+			data.fsize = f.size;
+			sendFile(f, data);
+			console.log(data);
+		}
+		$('.transfers').css('display', 'block');
+		$('.drop-target').css('display', 'none');
+		counter = 0;
+	}
+});
